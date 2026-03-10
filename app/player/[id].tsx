@@ -1,287 +1,202 @@
 import { useLocalSearchParams } from "expo-router";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { players } from "../../data/players";
-import { useFavorites } from "../../hooks/useFavorites";
+import React from "react";
 import {
-    calculateFantasyScore,
-    getTrendInfo,
-} from "../../utils/fantasyScore";
+    ActivityIndicator,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import StatSection from "../../components/StatSection";
+import { usePlayerDetail } from "../../hooks/usePlayerDetail";
+import { formatStat } from "../../utils/fantasyScore";
 
-export default function PlayerDetailScreen() {
-    const { id } = useLocalSearchParams();
-    const { isFavorite, toggleFavorite } = useFavorites();
+export default function PlayerDetailPage() {
+    const params = useLocalSearchParams<{ id: string }>();
+    const playerId = Array.isArray(params.id) ? params.id[0] : params.id;
 
-    const player = players.find((item) => item.id === Number(id));
+    const { player, loading, error } = usePlayerDetail(playerId ?? "");
+    const perGame = (value?: number, games?: number, digits = 1) => {
+        if (
+            value === undefined ||
+            value === null ||
+            games === undefined ||
+            games === null ||
+            games === 0
+        ) {
+            return "-";
+        }
 
-    if (!player) {
+        return (value / games).toFixed(digits);
+    };
+    if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <Text style={styles.errorText}>Oyuncu bulunamadı</Text>
+            <SafeAreaView style={styles.safe}>
+                <View style={styles.center}>
+                    <ActivityIndicator size="large" color="#fff" />
+                    <Text style={styles.helperText}>Oyuncu detayları yükleniyor...</Text>
+                </View>
             </SafeAreaView>
         );
     }
 
-    const fantasyScore = calculateFantasyScore(player).toFixed(1);
-    const trend = getTrendInfo(player);
-    const favorite = isFavorite(player.id);
-
-    const trendLabel =
-        Number(fantasyScore) >= 50
-            ? "Elite"
-            : Number(fantasyScore) >= 42
-                ? "Strong"
-                : "Solid";
+    if (error || !player) {
+        return (
+            <SafeAreaView style={styles.safe}>
+                <View style={styles.center}>
+                    <Text style={styles.errorText}>{error ?? "Oyuncu bulunamadı"}</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.headerCard}>
-                <View style={styles.headerTopRow}>
-                    <View style={styles.headerLeft}>
-                        <Text style={styles.name}>{player.name}</Text>
-                        <Text style={styles.team}>{player.team}</Text>
+        <SafeAreaView style={styles.safe}>
+            <ScrollView contentContainerStyle={styles.content}>
+                <View style={styles.hero}>
+                    <Text style={styles.name}>{player.name}</Text>
+                    <Text style={styles.meta}>
+                        {player.team} • {player.position}
+                        {player.age ? ` • ${player.age} yaş` : ""}
+                    </Text>
 
-                        <View style={styles.badgesRow}>
-                            <View style={styles.tagBox}>
-                                <Text style={styles.tagText}>{trendLabel}</Text>
-                            </View>
-
-                            <View
-                                style={[styles.trendBadge, { backgroundColor: trend.color }]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.trendBadgeText,
-                                        {
-                                            color:
-                                                trend.shortLabel === "STABLE" ? "#000000" : "#F6F4F1",
-                                        },
-                                    ]}
-                                >
-                                    {trend.label}
-                                </Text>
-                            </View>
+                    <View style={styles.heroStats}>
+                        <View style={styles.heroCard}>
+                            <Text style={styles.heroValue}>{perGame(player.points, player.games)}</Text>
+                            <Text style={styles.heroLabel}>PPG</Text>
                         </View>
-                    </View>
-
-                    <View style={styles.headerRight}>
-                        <Pressable
-                            onPress={() => toggleFavorite(player.id)}
-                            style={styles.favoriteButton}
-                        >
-                            <Text style={styles.favoriteIcon}>{favorite ? "★" : "☆"}</Text>
-                        </Pressable>
-
-                        <View style={styles.scoreBox}>
-                            <Text style={styles.scoreLabel}>Fantasy</Text>
-                            <Text style={styles.score}>{fantasyScore}</Text>
+                        <View style={styles.heroCard}>
+                            <Text style={styles.heroValue}>{perGame(player.rebounds, player.games)}</Text>
+                            <Text style={styles.heroLabel}>RPG</Text>
+                        </View>
+                        <View style={styles.heroCard}>
+                            <Text style={styles.heroValue}>{perGame(player.assists, player.games)}</Text>
+                            <Text style={styles.heroLabel}>APG</Text>
+                        </View>
+                        <View style={styles.heroCard}>
+                            <Text style={styles.heroValue}>
+                                {perGame(player.fantasyScore, player.games)}
+                            </Text>
+                            <Text style={styles.heroLabel}>FPG</Text>
                         </View>
                     </View>
                 </View>
-            </View>
 
-            <View style={styles.last5Card}>
-                <Text style={styles.last5Title}>Recent Form</Text>
-                <View style={styles.last5Row}>
-                    <Text style={styles.last5Label}>Last 5 Fantasy Avg</Text>
-                    <Text style={styles.last5Value}>{player.last5Fantasy.toFixed(1)}</Text>
-                </View>
-                <View style={styles.last5Row}>
-                    <Text style={styles.last5Label}>Season Fantasy Avg</Text>
-                    <Text style={styles.last5Value}>{fantasyScore}</Text>
-                </View>
-            </View>
+                <StatSection
+                    title="Genel"
+                    items={[
+                        { label: "Yaş", value: formatStat(player.age, 0) },
+                        { label: "Maç", value: formatStat(player.games, 0) },
+                        { label: "İlk 5", value: formatStat(player.gamesStarted, 0) },
+                        { label: "Dakika", value: formatStat(player.minutes, 0) },
+                        { label: "Top Kaybı", value: formatStat(player.turnovers, 0) },
+                        { label: "Faul", value: formatStat(player.fouls, 0) },
+                    ]}
+                />
 
-            <View style={styles.statsCard}>
-                <Text style={styles.sectionTitle}>Season Stats</Text>
+                <StatSection
+                    title="Skor"
+                    items={[
+                        { label: "Sayı", value: formatStat(player.points, 0) },
+                        { label: "Asist", value: formatStat(player.assists, 0) },
+                        { label: "Ribaund", value: formatStat(player.rebounds, 0) },
+                        { label: "Top Çalma", value: formatStat(player.steals, 0) },
+                        { label: "Blok", value: formatStat(player.blocks, 0) },
+                        { label: "Fantasy", value: formatStat(player.fantasyScore) },
+                    ]}
+                />
 
-                <View style={styles.row}>
-                    <StatItem label="PTS" value={player.pts} />
-                    <StatItem label="REB" value={player.reb} />
-                    <StatItem label="AST" value={player.ast} />
-                </View>
+                <StatSection
+                    title="Şut"
+                    items={[
+                        { label: "FGM", value: formatStat(player.fgMade, 0) },
+                        { label: "FGA", value: formatStat(player.fgAttempted, 0) },
+                        { label: "FG%", value: formatStat(player.fgPct) },
+                        { label: "3PM", value: formatStat(player.threeMade, 0) },
+                        { label: "3PA", value: formatStat(player.threeAttempted, 0) },
+                        { label: "3P%", value: formatStat(player.threePct) },
+                        { label: "FTM", value: formatStat(player.ftMade, 0) },
+                        { label: "FTA", value: formatStat(player.ftAttempted, 0) },
+                        { label: "FT%", value: formatStat(player.ftPct) },
+                    ]}
+                />
 
-                <View style={styles.row}>
-                    <StatItem label="STL" value={player.stl} />
-                    <StatItem label="BLK" value={player.blk} />
-                    <StatItem label="TOV" value={player.tov} />
-                </View>
-            </View>
+                <StatSection
+                    title="Ribaund"
+                    items={[
+                        { label: "Off Reb", value: formatStat(player.offensiveRebounds, 0) },
+                        { label: "Def Reb", value: formatStat(player.defensiveRebounds, 0) },
+                        { label: "Toplam", value: formatStat(player.rebounds, 0) },
+                        { label: "eFG%", value: formatStat(player.effectiveFgPct) },
+                    ]}
+                />
+            </ScrollView>
         </SafeAreaView>
     );
 }
 
-function StatItem({ label, value }: { label: string; value: number }) {
-    return (
-        <View style={styles.statBox}>
-            <Text style={styles.statValue}>{value}</Text>
-            <Text style={styles.statLabel}>{label}</Text>
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
-    container: {
+    safe: {
         flex: 1,
-        backgroundColor: "#000000",
+        backgroundColor: "#090909",
+    },
+    content: {
         padding: 16,
+        paddingBottom: 32,
     },
-    errorText: {
-        color: "#F6F4F1",
-        fontSize: 18,
-        fontWeight: "700",
-    },
-    headerCard: {
+    hero: {
         backgroundColor: "#111111",
-        borderRadius: 22,
+        borderRadius: 24,
         borderWidth: 1,
-        borderColor: "#222222",
+        borderColor: "#232323",
         padding: 18,
-    },
-    headerTopRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-    },
-    headerLeft: {
-        flex: 1,
-        paddingRight: 12,
-    },
-    headerRight: {
-        alignItems: "flex-end",
     },
     name: {
-        color: "#F6F4F1",
-        fontSize: 26,
-        fontWeight: "800",
-    },
-    team: {
-        color: "#AAAAAA",
-        fontSize: 15,
-        marginTop: 6,
-    },
-    badgesRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        gap: 8,
-        marginTop: 14,
-    },
-    tagBox: {
-        alignSelf: "flex-start",
-        backgroundColor: "#1A1A1A",
-        borderRadius: 999,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderWidth: 1,
-        borderColor: "#222222",
-    },
-    tagText: {
-        color: "#F95C4B",
-        fontSize: 13,
-        fontWeight: "700",
-    },
-    trendBadge: {
-        alignSelf: "flex-start",
-        borderRadius: 999,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-    },
-    trendBadgeText: {
-        fontSize: 12,
-        fontWeight: "800",
-    },
-    favoriteButton: {
-        marginBottom: 10,
-        paddingHorizontal: 4,
-        paddingVertical: 2,
-    },
-    favoriteIcon: {
+        color: "#fff",
         fontSize: 28,
-        color: "#F95C4B",
-        fontWeight: "800",
+        fontWeight: "900",
     },
-    scoreBox: {
-        backgroundColor: "#F95C4B",
-        borderRadius: 18,
-        paddingHorizontal: 16,
+    meta: {
+        color: "#9ca3af",
+        marginTop: 6,
+        fontSize: 14,
+    },
+    heroStats: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 18,
+    },
+    heroCard: {
+        width: "23%",
+        backgroundColor: "#171717",
+        borderRadius: 16,
         paddingVertical: 12,
         alignItems: "center",
-        minWidth: 95,
     },
-    scoreLabel: {
-        color: "#F6F4F1",
-        fontSize: 12,
-        fontWeight: "700",
-    },
-    score: {
-        color: "#F6F4F1",
-        fontSize: 24,
-        fontWeight: "800",
-        marginTop: 2,
-    },
-    last5Card: {
-        backgroundColor: "#111111",
-        borderRadius: 22,
-        borderWidth: 1,
-        borderColor: "#222222",
-        padding: 18,
-        marginTop: 16,
-    },
-    last5Title: {
-        color: "#F6F4F1",
+    heroValue: {
+        color: "#fff",
         fontSize: 18,
-        fontWeight: "800",
-        marginBottom: 12,
+        fontWeight: "900",
     },
-    last5Row: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 10,
-    },
-    last5Label: {
-        color: "#888888",
-        fontSize: 14,
-        fontWeight: "600",
-    },
-    last5Value: {
-        color: "#F6F4F1",
-        fontSize: 16,
-        fontWeight: "800",
-    },
-    statsCard: {
-        backgroundColor: "#111111",
-        borderRadius: 22,
-        borderWidth: 1,
-        borderColor: "#222222",
-        padding: 18,
-        marginTop: 16,
-    },
-    sectionTitle: {
-        color: "#F6F4F1",
-        fontSize: 20,
-        fontWeight: "800",
-        marginBottom: 16,
-    },
-    row: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 12,
-    },
-    statBox: {
-        width: "31%",
-        backgroundColor: "#1A1A1A",
-        borderRadius: 16,
-        paddingVertical: 16,
-        alignItems: "center",
-    },
-    statValue: {
-        color: "#F6F4F1",
-        fontSize: 20,
-        fontWeight: "800",
-    },
-    statLabel: {
-        color: "#888888",
-        fontSize: 12,
-        fontWeight: "700",
+    heroLabel: {
+        color: "#a3a3a3",
         marginTop: 4,
+        fontSize: 11,
+    },
+    center: {
+        flex: 1,
+        alignItems: "center",
+        justifyContent: "center",
+        paddingHorizontal: 24,
+    },
+    helperText: {
+        color: "#9ca3af",
+        marginTop: 10,
+    },
+    errorText: {
+        color: "#f87171",
+        textAlign: "center",
+        fontWeight: "700",
     },
 });

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 const STORAGE_KEY = "favorite_player_ids";
 
 export function useFavorites() {
-    const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+    const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
     const [loadingFavorites, setLoadingFavorites] = useState(true);
 
     useEffect(() => {
@@ -25,26 +25,13 @@ export function useFavorites() {
         }
     };
 
-    const toggleFavorite = async (playerId: number) => {
-        try {
-            let updated: number[] = [];
-
-            if (favoriteIds.includes(playerId)) {
-                updated = favoriteIds.filter((id) => id !== playerId);
-            } else {
-                updated = [...favoriteIds, playerId];
-            }
-
-            setFavoriteIds(updated);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        } catch (error) {
-            console.log("Favori güncellenemedi:", error);
-        }
+    const toggleFavorite = (id: string) => {
+        setFavoriteIds((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        );
     };
 
-    const isFavorite = (playerId: number) => {
-        return favoriteIds.includes(playerId);
-    };
+    const isFavorite = (id: string) => favoriteIds.includes(id);
 
     return {
         favoriteIds,

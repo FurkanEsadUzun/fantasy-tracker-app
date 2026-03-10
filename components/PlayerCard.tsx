@@ -1,206 +1,122 @@
 import { router } from "expo-router";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { calculateFantasyScore, getTrendInfo } from "../utils/fantasyScore";
+import { PlayerListItem } from "../types/nba";
 
-type Player = {
-    id: number;
-    name: string;
-    team: string;
-    pts: number;
-    reb: number;
-    ast: number;
-    stl: number;
-    blk: number;
-    tov: number;
-    last5Fantasy: number;
-};
-
-export default function PlayerCard({
-    player,
-    isFavorite,
-    onToggleFavorite,
-}: {
-    player: Player;
+type Props = {
+    player: PlayerListItem;
     isFavorite: boolean;
-    onToggleFavorite: (id: number) => void;
-}) {
-    const fantasyScore = calculateFantasyScore(player).toFixed(1);
-    const trend = getTrendInfo(player);
+    onToggleFavorite: () => void;
+};
+const perGame = (value?: number, games?: number, digits = 1) => {
+    if (
+        value === undefined ||
+        value === null ||
+        games === undefined ||
+        games === null ||
+        games === 0
+    ) {
+        return "-";
+    }
 
+    return (value / games).toFixed(digits);
+};
+export default function PlayerCard({ player, isFavorite, onToggleFavorite }: Props) {
     return (
         <Pressable
             style={styles.card}
-            onPress={() =>
-                router.push({
-                    pathname: "/player/[id]",
-                    params: { id: String(player.id) },
-                })
-            }
+            onPress={() => router.push(`/player/${player.id}`)}
         >
-            <View style={styles.topRow}>
-                <View style={styles.leftTop}>
+            <View style={styles.header}>
+                <View style={{ flex: 1 }}>
                     <Text style={styles.name}>{player.name}</Text>
-                    <Text style={styles.team}>{player.team}</Text>
-
-                    <View style={[styles.trendBadge, { backgroundColor: trend.color }]}>
-                        <Text
-                            style={[
-                                styles.trendBadgeText,
-                                { color: trend.shortLabel === "STABLE" ? "#000000" : "#F6F4F1" },
-                            ]}
-                        >
-                            {trend.label}
-                        </Text>
-                    </View>
+                    <Text style={styles.meta}>
+                        {player.team} • {player.position}
+                    </Text>
                 </View>
 
-                <View style={styles.rightTop}>
-                    <Pressable
-                        onPress={() => onToggleFavorite(player.id)}
-                        style={styles.favoriteButton}
-                    >
-                        <Text style={styles.favoriteIcon}>{isFavorite ? "★" : "☆"}</Text>
-                    </Pressable>
-
-                    <View style={styles.scoreBox}>
-                        <Text style={styles.score}>{fantasyScore}</Text>
-                    </View>
-                </View>
+                <Pressable style={styles.favoriteButton} onPress={onToggleFavorite}>
+                    <Text style={styles.favoriteText}>{isFavorite ? "★" : "☆"}</Text>
+                </Pressable>
             </View>
 
             <View style={styles.statsRow}>
-                <Stat label="PTS" value={player.pts} />
-                <Stat label="REB" value={player.reb} />
-                <Stat label="AST" value={player.ast} />
-                <Stat label="STL" value={player.stl} />
-                <Stat label="BLK" value={player.blk} />
-                <Stat label="TOV" value={player.tov} />
-            </View>
-
-            <View style={styles.last5Row}>
-                <Text style={styles.last5Label}>Last 5 Fantasy Avg</Text>
-                <Text style={styles.last5Value}>{player.last5Fantasy.toFixed(1)}</Text>
+                <View style={styles.statBox}>
+                    <Text style={styles.statValue}>{perGame(player.points, player.games)}</Text>
+                    <Text style={styles.statLabel}>PPG</Text>
+                </View>
+                <View style={styles.statBox}>
+                    <Text style={styles.statValue}>{perGame(player.rebounds, player.games)}</Text>
+                    <Text style={styles.statLabel}>RPG</Text>
+                </View>
+                <View style={styles.statBox}>
+                    <Text style={styles.statValue}>{perGame(player.assists, player.games)}</Text>
+                    <Text style={styles.statLabel}>APG</Text>
+                </View>
+                <View style={styles.statBox}>
+                    <Text style={styles.statValue}>{perGame(player.fantasyScore, player.games)}</Text>
+                    <Text style={styles.statLabel}>FPG</Text>
+                </View>
             </View>
         </Pressable>
-    );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-    return (
-        <View style={styles.statBox}>
-            <Text style={styles.statValue}>{value}</Text>
-            <Text style={styles.statLabel}>{label}</Text>
-        </View>
     );
 }
 
 const styles = StyleSheet.create({
     card: {
         backgroundColor: "#111111",
-        borderRadius: 20,
-        padding: 16,
-        marginBottom: 14,
+        borderColor: "#242424",
         borderWidth: 1,
-        borderColor: "#222222",
+        borderRadius: 18,
+        padding: 16,
+        marginBottom: 12,
     },
-    topRow: {
+    header: {
         flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 16,
-    },
-    leftTop: {
-        flex: 1,
-        paddingRight: 12,
+        alignItems: "center",
+        marginBottom: 14,
     },
     name: {
-        color: "#F6F4F1",
-        fontSize: 20,
-        fontWeight: "800",
-    },
-    team: {
-        color: "#AAAAAA",
-        marginTop: 4,
-        fontSize: 14,
-    },
-    trendBadge: {
-        alignSelf: "flex-start",
-        borderRadius: 999,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        marginTop: 10,
-    },
-    trendBadgeText: {
-        fontSize: 11,
-        fontWeight: "800",
-    },
-    scoreBox: {
-        backgroundColor: "#F95C4B",
-        borderRadius: 16,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        justifyContent: "center",
-        alignItems: "center",
-        minWidth: 78,
-    },
-    score: {
-        color: "#F6F4F1",
-        fontSize: 22,
-        fontWeight: "800",
-    },
-    statsRow: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        justifyContent: "space-between",
-    },
-    statBox: {
-        width: "30%",
-        backgroundColor: "#1A1A1A",
-        borderRadius: 14,
-        paddingVertical: 10,
-        marginBottom: 10,
-        alignItems: "center",
-    },
-    statValue: {
-        color: "#F6F4F1",
+        color: "#fff",
         fontSize: 18,
         fontWeight: "800",
     },
-    statLabel: {
-        color: "#888888",
-        fontSize: 12,
-        marginTop: 2,
-        fontWeight: "600",
-    },
-    last5Row: {
+    meta: {
+        color: "#9ca3af",
         marginTop: 4,
-        paddingTop: 6,
+        fontSize: 13,
+    },
+    favoriteButton: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        backgroundColor: "#1a1a1a",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    favoriteText: {
+        color: "#facc15",
+        fontSize: 20,
+    },
+    statsRow: {
         flexDirection: "row",
         justifyContent: "space-between",
+    },
+    statBox: {
+        width: "23%",
+        backgroundColor: "#171717",
+        borderRadius: 14,
+        paddingVertical: 10,
         alignItems: "center",
     },
-    last5Label: {
-        color: "#888888",
-        fontSize: 13,
-        fontWeight: "600",
-    },
-    last5Value: {
-        color: "#F6F4F1",
+    statValue: {
+        color: "#fff",
         fontSize: 15,
         fontWeight: "800",
     },
-    rightTop: {
-        alignItems: "flex-end",
-    },
-
-    favoriteButton: {
-        marginBottom: 8,
-        paddingHorizontal: 4,
-        paddingVertical: 2,
-    },
-
-    favoriteIcon: {
-        fontSize: 24,
-        color: "#F95C4B",
-        fontWeight: "800",
+    statLabel: {
+        color: "#888",
+        marginTop: 4,
+        fontSize: 11,
     },
 });
